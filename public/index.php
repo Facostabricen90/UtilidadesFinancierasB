@@ -1,20 +1,30 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
-
 use App\Controllers\CalculadoraController;
 
 $controller = new CalculadoraController();
 $resultado = null;
 $error = null;
+$calculoPrevio = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'interes':
                 $controller->interesCompuesto();
+                $calculoPrevio = ['tipo' => 'interes', 'datos' => $_POST];
                 break;
             case 'salario':
                 $controller->salarioNeto();
+                $calculoPrevio = ['tipo' => 'salario', 'datos' => $_POST];
+                break;
+            case 'pdf-interes':
+                $controller->generarPdfInteres();
+                exit;
+            case 'enviar-salario':
+                $controller->enviarCorreoSalario();
+                $controller->salarioNeto();
+                $calculoPrevio = ['tipo' => 'salario', 'datos' => $_POST];
                 break;
         }
         $resultado = $controller->getResultado();
@@ -55,24 +65,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
     </nav>
     
-    <div class="container">
+     <div class="container">
         <div class="row justify-content-center">
             <div class="col-md-8">
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h1 class="card-title text-center text-primary mb-4">Utilidades Financieras</h1>
+                <div class="card shadow-sm">
+                    <div class="card-body p-4">
+                        <h1 class="card-title text-center text-primary mb-4">Calculadoras Financieras</h1>
 
+                        <?php if ($controller->mensajeCorreo): ?>
+                            <div class="alert alert-info text-center"><?php echo htmlspecialchars($controller->mensajeCorreo); ?></div>
+                        <?php endif; ?>
+                        
                         <?php if ($error): ?>
                             <div class="alert alert-danger text-center"><?php echo htmlspecialchars($error); ?></div>
                         <?php elseif ($resultado !== null): ?>
                             <div class="alert alert-success text-center">
-                                El resultado es: <strong><?php echo number_format($resultado, 2, ',', '.'); ?></strong>
+                                El resultado es: <strong>$ <?php echo number_format($resultado, 2, ',', '.'); ?></strong>
                             </div>
-                        <?php endif; ?>
 
-                        <hr>
+                            <div class="card mt-3 p-3 bg-light border">
+                                <h5 class="card-title mb-3">Acciones Adicionales</h5>
+                                <?php if ($calculoPrevio['tipo'] === 'interes'): ?>
+                                    <form action="index.php" method="post" target="_blank">
+                                        <input type="hidden" name="action" value="pdf-interes">
+                                        <input type="hidden" name="capital" value="<?php echo htmlspecialchars($calculoPrevio['datos']['capital']); ?>">
+                                        <input type="hidden" name="tasa" value="<?php echo htmlspecialchars($calculoPrevio['datos']['tasa']); ?>">
+                                        <input type="hidden" name="anios" value="<?php echo htmlspecialchars($calculoPrevio['datos']['anios']); ?>">
+                                        <input type="hidden" name="resultado" value="<?php echo htmlspecialchars($resultado); ?>">
+                                        <div class="d-grid">
+                                            <button type="submit" class="btn btn-secondary"><i class="bi bi-file-earmark-pdf"></i> Descargar Resultado en PDF</button>
+                                        </div>
+                                    </form>
+                                <?php elseif ($calculoPrevio['tipo'] === 'salario'): ?>
+                                     <form action="index.php" method="post">
+                                        <input type="hidden" name="action" value="enviar-salario">
+                                        <input type="hidden" name="salarioBruto" value="<?php echo htmlspecialchars($calculoPrevio['datos']['salarioBruto']); ?>">
+                                        <input type="hidden" name="salarioNeto" value="<?php echo htmlspecialchars($resultado); ?>">
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                            <input type="email" name="email" class="form-control" placeholder="tu.correo@ejemplo.com" required>
+                                            <button type="submit" class="btn btn-secondary">Enviar por Correo</button>
+                                        </div>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                            <?php endif; ?>
+                        <hr class="my-4">
 
-                        <h2 class="text-primary">Calculadora de Interés Compuesto</h2>
+                        <h2 class="text-primary h4">Calculadora de Interés Compuesto</h2>
                         <form action="index.php" method="post" class="mb-4">
                             <input type="hidden" name="action" value="interes">
                             
@@ -96,9 +136,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                         </form>
 
-                        <hr>
+                        <hr class="my-4">
 
-                        <h2 class="text-primary">Calculadora de Salario Neto (Colombia)</h2>
+                        <h2 class="text-primary h4">Calculadora de Salario Neto (Colombia)</h2>
                         <form action="index.php" method="post">
                             <input type="hidden" name="action" value="salario">
                             
